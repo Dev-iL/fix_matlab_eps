@@ -1,27 +1,39 @@
-''' Fix EPS images that contain artifacts since Matlab 2014b
+#!/usr/bin/env python3
+""" Fix EPS images that contain artifacts since Matlab 2014b
 
-Usage: python fix_matlab_eps.py input-file output-file'''
+Usage: python fix_matlab_eps.py input-file output-file inkscape-binary-path
+
+See inkscape command line documentation here: https://inkscape.org/en/doc/inkscape-man.html
+"""
 
 import re
 import os
 import sys
-import subprocess
+from subprocess import PIPE, run
 import tempfile
 
 
 def main():
-    ret = subprocess.call('inkscape --version', shell=True)
+
+    if len(sys.argv) >= 4:
+        inkscape_path = sys.argv[3]
+    else:
+        inkscape_path = 'inkscape'  # Assume the Inkscape binary is in PATH
+
+    ret = run(inkscape_path + ' --version', stdout=PIPE, stderr=PIPE, shell=True)
 
     if len(sys.argv) < 3:
-        print('Usage: python fix_matlab_eps.py input-file output-file')
+        print('Usage: python fix_matlab_eps.py input-file output-file inkscape-binary-path')
 
-    if ret:
+    if ret.returncode:
         print('Error: You need Inkscape to convert images to a parsable format')
         return
 
+    ver = str(ret.stdout, 'utf-8').split(' ')[1]  # Store the Inkscape version for later
     tmp = os.path.join(tempfile.gettempdir(), 'fix_matlab_eps.eps')
-    ret = subprocess.call('inkscape --export-area-page --export-eps=' +
-                          tmp+' '+sys.argv[1], shell=True)
+    ret = run('"' + inkscape_path + '" --file="' + sys.argv[1] + '" --export-area-snap -E "' + tmp + '"',
+              stdout=PIPE, stderr=PIPE, shell=True)
+    # -E FILENAME, --export-eps=FILENAME; -z, --without-gui
 
     text = ''
     line_list = []
