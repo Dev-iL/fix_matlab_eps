@@ -13,25 +13,16 @@ from subprocess import PIPE, run
 import tempfile
 
 
-def main():
-
-    if len(sys.argv) >= 4:
-        inkscape_path = sys.argv[3]
-    else:
-        inkscape_path = 'inkscape'  # Assume the Inkscape binary is in PATH
-
-    ret = run(inkscape_path + ' --version', stdout=PIPE, stderr=PIPE, shell=True)
-
-    if len(sys.argv) < 3:
-        print('Usage: python fix_matlab_eps.py input-file output-file inkscape-binary-path')
+def __internal_fix_eps(input_fname, output_fname, inkscape_path):
+    ret = run('"' + inkscape_path + '" --version', stdout=PIPE, stderr=PIPE, shell=True)
 
     if ret.returncode:
-        print('Error: You need Inkscape to convert images to a parsable format')
+        print('Error: The Inkscape executable cannot be found. Cannot convert image to a parsable format!')
         return
 
     ver = str(ret.stdout, 'utf-8').split(' ')[1]  # Store the Inkscape version for later
     tmp = os.path.join(tempfile.gettempdir(), 'fix_matlab_eps.eps')
-    ret = run('"' + inkscape_path + '" --file="' + sys.argv[1] + '" --export-area-snap -E "' + tmp + '"',
+    ret = run('"' + inkscape_path + '" --file="' + input_fname + '" --export-area-snap -E "' + tmp + '"',
               stdout=PIPE, stderr=PIPE, shell=True)
     # -E FILENAME, --export-eps=FILENAME; -z, --without-gui
 
@@ -59,7 +50,7 @@ def main():
 
         # End of patches with 1 color
         if colored_patch and (re.match('.* r?g$', i) or re.match('^Q Q$', i)) \
-           and line_list:
+                and line_list:
             colored_patch = False
             last = []
             for j in reversed(line_list):
@@ -132,9 +123,27 @@ def main():
 
     f.close()
 
-    f = open(sys.argv[2], 'w')
+    f = open(output_fname, 'w')
     f.write(text)
     f.close()
+
+
+# This is the python API:
+def fix_eps(input_fname, output_fname, inkscape_path):
+    __internal_fix_eps(input_fname, output_fname, inkscape_path)
+
+
+# This is the "command prompt API":
+def main():
+    if len(sys.argv) == 4:
+        # sys.argv[0] is the path of this script.
+        __internal_fix_eps(input_fname=sys.argv[1], output_fname=sys.argv[2], inkscape_path=sys.argv[3])
+    elif len(sys.argv) == 3:
+        # By default, assume the Inkscape binary is in PATH
+        __internal_fix_eps(input_fname=sys.argv[1], output_fname=sys.argv[2], inkscape_path='inkscape')
+    else:  # meaning: len(sys.argv) < 3 || len(sys.argv) > 4
+        print('Wrong amount of inputs.\nUsage: python fix_matlab_eps.py input-file output-file inkscape-binary-path')
+
 
 if __name__ == '__main__':
     main()
